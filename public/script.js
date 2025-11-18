@@ -96,6 +96,46 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
 
+    // Función para ordenar videojuegos
+    function ordenarVideojuegos(lista, criterio) {
+        if (!criterio) return lista;
+        
+        const listaCopia = [...lista]; // Crear una copia para no mutar el original
+        
+        switch(criterio) {
+            case 'sale-asc':
+                // Precio oferta ascendente (menor)
+                return listaCopia.sort((a, b) => {
+                    const precioA = parseFloat(a.salePrice) || Infinity;
+                    const precioB = parseFloat(b.salePrice) || Infinity;
+                    return precioA - precioB;
+                });
+            case 'sale-desc':
+                // Precio oferta descendente (mayor)
+                return listaCopia.sort((a, b) => {
+                    const precioA = parseFloat(a.salePrice) || -Infinity;
+                    const precioB = parseFloat(b.salePrice) || -Infinity;
+                    return precioB - precioA;
+                });
+            case 'normal-asc':
+                // Precio normal ascendente (menor)
+                return listaCopia.sort((a, b) => {
+                    const precioA = parseFloat(a.normalPrice) || Infinity;
+                    const precioB = parseFloat(b.normalPrice) || Infinity;
+                    return precioA - precioB;
+                });
+            case 'normal-desc':
+                // Precio normal descendente (mayor)
+                return listaCopia.sort((a, b) => {
+                    const precioA = parseFloat(a.normalPrice) || -Infinity;
+                    const precioB = parseFloat(b.normalPrice) || -Infinity;
+                    return precioB - precioA;
+                });
+            default:
+                return listaCopia;
+        }
+    }
+
     // Función para el botón de búsqueda
     async function buscarVideojuegos() {
         const texto = document.querySelector("#input-busqueda").value.trim();
@@ -124,16 +164,19 @@ document.addEventListener("DOMContentLoaded", () => {
             }
 
             // Renderizar resultados
-            renderizarVideojuegos(
-                datos.map((juego) => ({
-                    title: juego.external,
-                    thumb: juego.thumb,
-                    normalPrice: juego.cheapest, // CheapShark devuelve "cheapest"
-                    salePrice: juego.cheapest,   // No hay oferta aquí
-                    savings: null,
-                    gameID: juego.gameID,   // Agregado para consistencia
-                }))
-            );
+            const resultados = datos.map((juego) => ({
+                title: juego.external,
+                thumb: juego.thumb,
+                normalPrice: juego.cheapest, // CheapShark devuelve "cheapest"
+                salePrice: juego.cheapest,   // No hay oferta aquí
+                savings: null,
+                gameID: juego.gameID,   // Agregado para consistencia
+            }));
+            
+            window._juegosCache = resultados; // Actualizar cache
+            const criterioOrden = selectOrdenar.value;
+            const resultadosOrdenados = ordenarVideojuegos(resultados, criterioOrden);
+            renderizarVideojuegos(resultadosOrdenados);
         } catch (e) {
             console.error("Error al buscar videojuegos:", e);
             estadoCarga.classList.add("hidden");
@@ -269,6 +312,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Llamamos a la función para renderizar los videojuegos al cargar la página
     cargarVideojuegosInicial();
+
+    // Evento para el selector de ordenamiento
+    const selectOrdenar = document.querySelector("#select-ordenar");
+    selectOrdenar.addEventListener("change", (e) => {
+        if (window._juegosCache) {
+            const juegosOrdenados = ordenarVideojuegos(window._juegosCache, e.target.value);
+            renderizarVideojuegos(juegosOrdenados);
+        }
+    });
 
     // Eventos para el botón de búsqueda y la tecla Enter
     document.querySelector("#btn-buscar")
