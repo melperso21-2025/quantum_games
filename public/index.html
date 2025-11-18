@@ -3,21 +3,22 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>GameZone Store</title>
+        <title>Quantum Games</title>
         <link href="./output.css" rel="stylesheet" />
+        <link rel="icon" type="image/png" href="./favicon.png">
     </head>
     <body class="bg-slate-100 min-h-screen">
         
         <header 
             class="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
             <div>
-                <h1 class="text-2xl font-bold tracking-tight">GameZone Store</h1>
-                <p class="text-sm text-slate-200">Catálogo de videojuegos</p>
+                <h1 class="text-2xl font-bold tracking-tight">Quantum Games</h1>
+                <p class="text-sm text-slate-200">El futuro del gaming empieza aquí</p>
             </div>
             <span class="text-xs text-slate-300">v1.0 · demo educativa</span>
         </header>
     
-        <main class="p-6 max-w-6xl mx-auto">
+        <main class="p-6 max-w-6xl mx-auto mt-4 md:mt-8">
             <!-- BARRA DE BÚSQUEDA / CONTROLES -->
             <section 
                 class="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -63,14 +64,13 @@
                 </h2>
                 
                 <!--Etiqueta para cargar video juegos -->
-                <p 
-                    id = "estado-carga" class="text-sm text-slate-500 mb-3 hidden"> 
-                    Cargando video juegos...
+                <p id="estado-carga" class="text-sm text-slate-500 mb-3 flex items-center gap-2 hidden">
+                    <span class="loader w-4 h-4 border-2 border-slate-300 border-t-slate-900 rounded-full animate-spin"></span>
+                    Cargando videojuegos...
                 </p>
 
                 <!--Etiqueta para errores de carga de video juegos -->
-                <p
-                    id = "estado-error" class="text-sm text-red-500 mb-3 hidden"> 
+                <p id="estado-error" class="text-sm text-red-500 mb-3 hidden"> 
                     Error al cargar los video juegos. Inténtalo de nuevo más tarde...
                 </p>
                 
@@ -82,7 +82,28 @@
                 </div>
             </section>
         </main>
+
         <script src="./script.js"></script>
+        
+        <!-- MODAL DE DETALLE -->
+        <div id="modal-overlay"
+            class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden justify-center items-center z-50">
+            
+            <div class="bg-white rounded-xl shadow-lg p-6 max-w-md w-full relative">
+                
+                <!-- Botón cerrar -->
+                <button id="modal-close" 
+                    class="absolute top-3 right-3 text-slate-600 hover:text-slate-900 text-xl">
+                    &times;
+                </button>
+
+                <div id="modal-content">
+                    <!-- Aquí JS insertará la información -->
+                    <p class="text-center text-slate-600 text-sm">Cargando detalles...</p>
+                </div>
+            </div>
+        </div>
+
     </body>
 </html>
 
