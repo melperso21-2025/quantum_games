@@ -13,6 +13,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let isModalDragging = false;
     let dragOffsetX = 0;
     let dragOffsetY = 0;
+    let tiendasFiltradas = {}; // Almacenar las tiendas disponibles
 
     // Datos de videojuegos de ejemplo si falla la carga desde la API
     const videoJuegosLocales = [
@@ -82,17 +83,86 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async function cargarVideojuegosInicial() { //Async significa que la función maneja operaciones asíncronas y puede usar await
         try{
-            const url = "https://www.cheapshark.com/api/1.0/deals?storeID=1&pageSize=21"; // URL de la API
-            const resp = await fetch(url); // Hacemos la petición a la API y esperamos la respuesta
-            const datos = await resp.json(); // Esperamos a que la respuesta se convierta a JSON
+            estadoCarga.classList.remove('hidden'); // Mostrar indicador de carga
+            
+            // Array de tiendas activas a las que haremos peticiones
+            const tiendas = [1, 2, 3, 7, 11, 13, 15, 21, 23, 25, 27, 28, 29, 30, 34, 35];
+            let todosLosJuegos = [];
+            
+            // Hacer peticiones a múltiples tiendas
+            for (const storeID of tiendas) {
+                try {
+                    const url = `https://www.cheapshark.com/api/1.0/deals?storeID=${storeID}&pageSize=20`;
+                    const resp = await fetch(url);
+                    const datos = await resp.json();
+                    
+                    // Agregar los juegos de esta tienda
+                    todosLosJuegos = [...todosLosJuegos, ...datos];
+                } catch (e) {
+                    console.warn(`Error al cargar tienda ${storeID}:`, e);
+                    // Continuar con la siguiente tienda si una falla
+                }
+            }
+            
+            // Remover duplicados por gameID (mantener el primero encontrado)
+            const juegosUnicos = [];
+            const idsVisto = new Set();
+            
+            for (const juego of todosLosJuegos) {
+                if (!idsVisto.has(juego.gameID)) {
+                    idsVisto.add(juego.gameID);
+                    juegosUnicos.push(juego);
+                }
+            }
 
-            window._juegosCache = datos; // // cache para reutilizar los datos sin hacer múltiples peticiones
-
-            renderizarVideojuegos(datos); // Llamamos a la función para renderizar los videojuegos con los datos obtenidos
+            window._juegosCache = juegosUnicos; // cache para reutilizar los datos sin hacer múltiples peticiones
+            
+            renderizarVideojuegos(juegosUnicos); // Llamamos a la función para renderizar los videojuegos con los datos obtenidos
+            estadoCarga.classList.add('hidden'); // Ocultar indicador de carga
         } catch (e) {
             console.error("Error al cargar los videojuegos desde la API:", e);
+            estadoCarga.classList.add('hidden');
             renderizarVideojuegos(videoJuegosLocales); // Si hay un error, renderizamos los videojuegos locales de ejemplo
         }
+    }
+
+    // Función para cargar las tiendas
+    async function cargarTiendas() {
+        try {
+            const resp = await fetch("https://www.cheapshark.com/api/1.0/stores");
+            const tiendas = await resp.json();
+            
+            // Filtrar solo tiendas activas y crear objeto para rápido acceso
+            tiendas.forEach(tienda => {
+                if (tienda.isActive) {
+                    tiendasFiltradas[tienda.storeID] = tienda;
+                }
+            });
+
+            // Llenar el select de tiendas
+            const selectTienda = document.querySelector("#select-tienda");
+            tiendas
+                .filter(t => t.isActive)
+                .forEach(tienda => {
+                    const option = document.createElement("option");
+                    option.value = tienda.storeID;
+                    option.textContent = tienda.storeName;
+                    selectTienda.appendChild(option);
+                });
+
+            return tiendas;
+        } catch (e) {
+            console.error("Error al cargar las tiendas:", e);
+        }
+    }
+
+    // Función para filtrar videojuegos por tienda
+    function filtrarPorTienda(lista, storeID) {
+        if (!storeID) return lista; // Si no hay tienda seleccionada, mostrar todos
+        
+        // Filtrar juegos que tengan el storeID igual al seleccionado
+        // El endpoint /deals devuelve juegos con propiedad storeID directamente
+        return lista.filter(juego => juego.storeID === storeID);
     }
 
 
@@ -275,28 +345,35 @@ document.addEventListener("DOMContentLoaded", () => {
                 </p>
 
                 <h3 class="font-semibold text-slate-800 mt-4 mb-2">Ofertas disponibles</h3>
-                <div class="flex flex-col gap-2">
+                <div class="flex flex-col gap-2 max-h-80 overflow-y-auto">
                     ${
                         deals
-                            .map((d) => `
-                                <div class="border p-3 rounded-lg shadow-sm flex flex-col gap-1">
-                                    <p class="text-sm">
-                                        <strong>Precio:</strong> $${d.price}
-                                        <span class="text-xs text-slate-500">
-                                            (Antes $${d.retailPrice})
-                                        </span>
-                                    </p>
-                                    <p class="text-sm text-green-600">
-                                        Ahorro: ${Math.round(d.savings)}%
-                                    </p>
-                                    <a
-                                        target="_blank"
-                                        href="https://www.cheapshark.com/redirect?dealID=${d.dealID}"
-                                        class="text-center bg-slate-900 text-white py-1 rounded-md text-sm hover:bg-slate-800">
-                                        Ir a la tienda
-                                    </a>
-                                </div>
-                            `)
+                            .map((d) => {
+                                const tienda = tiendasFiltradas[d.storeID];
+                                const tiendaNombre = tienda ? tienda.storeName : `Tienda ${d.storeID}`;
+                                return `
+                                    <div class="border p-3 rounded-lg shadow-sm flex flex-col gap-1">
+                                        <p class="text-xs font-semibold text-slate-600">
+                                            🏪 ${tiendaNombre}
+                                        </p>
+                                        <p class="text-sm">
+                                            <strong>Precio:</strong> $${d.price}
+                                            <span class="text-xs text-slate-500">
+                                                (Antes $${d.retailPrice})
+                                            </span>
+                                        </p>
+                                        <p class="text-sm text-green-600">
+                                            Ahorro: ${Math.round(d.savings)}%
+                                        </p>
+                                        <a
+                                            target="_blank"
+                                            href="https://www.cheapshark.com/redirect?dealID=${d.dealID}"
+                                            class="text-center bg-slate-900 text-white py-1 rounded-md text-sm hover:bg-slate-800">
+                                            Ir a ${tiendaNombre}
+                                        </a>
+                                    </div>
+                                `;
+                            })
                             .join("")
                     }
                 </div>
@@ -312,12 +389,24 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Llamamos a la función para renderizar los videojuegos al cargar la página
     cargarVideojuegosInicial();
+    cargarTiendas(); // Cargar tiendas disponibles
 
     // Evento para el selector de ordenamiento
     const selectOrdenar = document.querySelector("#select-ordenar");
     selectOrdenar.addEventListener("change", (e) => {
         if (window._juegosCache) {
             const juegosOrdenados = ordenarVideojuegos(window._juegosCache, e.target.value);
+            renderizarVideojuegos(juegosOrdenados);
+        }
+    });
+
+    // Evento para el selector de tienda
+    const selectTienda = document.querySelector("#select-tienda");
+    selectTienda.addEventListener("change", (e) => {
+        if (window._juegosCache) {
+            let juegosFiltrados = filtrarPorTienda(window._juegosCache, e.target.value);
+            const criterioOrden = selectOrdenar.value;
+            const juegosOrdenados = ordenarVideojuegos(juegosFiltrados, criterioOrden);
             renderizarVideojuegos(juegosOrdenados);
         }
     });
