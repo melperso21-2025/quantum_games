@@ -24,11 +24,13 @@
                 class="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div class="flex items-center gap-2 w-full md:max-w-md">
                     <input
+                        id="input-busqueda"
                         type="text"
                         placeholder="Buscar videojuego..."
                         class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
                     />
                     <button 
+                        id="btn-buscar"
                         class="px-4 py-2 bg-slate-900 text-white rounded-lg text-sm hover:bg-slate-800">
                         Buscar
                     </button>
@@ -70,7 +72,8 @@
                 </p>
 
                 <!--Etiqueta para errores de carga de video juegos -->
-                <p id="estado-error" class="text-sm text-red-500 mb-3 hidden"> 
+                <p 
+                    id="estado-error" class="text-sm text-red-500 mb-3 hidden"> 
                     Error al cargar los video juegos. Inténtalo de nuevo más tarde...
                 </p>
                 
@@ -89,7 +92,7 @@
         <div id="modal-overlay"
             class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden justify-center items-center z-50">
             
-            <div class="bg-white rounded-xl shadow-lg p-6 max-w-md w-full relative">
+            <div class="bg-white rounded-xl shadow-lg p-6 max-w-md w-full relative select-none" style="cursor: grab;">
                 
                 <!-- Botón cerrar -->
                 <button id="modal-close" 
