@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="es">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>GameZone Store</title>
+        <link href="./output.css" rel="stylesheet" />
+    </head>
+    <body class="bg-slate-100 min-h-screen">
+        
+        <header 
+            class="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
+            <div>
+                <h1 class="text-2xl font-bold tracking-tight">GameZone Store</h1>
+                <p class="text-sm text-slate-200">Catálogo de videojuegos</p>
+            </div>
+            <span class="text-xs text-slate-300">v1.0 · demo educativa</span>
+        </header>
+    
+        <main class="p-6 max-w-6xl mx-auto">
+            <!-- BARRA DE BÚSQUEDA / CONTROLES -->
+            <section 
+                class="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div class="flex items-center gap-2 w-full md:max-w-md">
+                    <input
+                        type="text"
+                        placeholder="Buscar videojuego..."
+                        class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+                    />
+                    <button 
+                        class="px-4 py-2 bg-slate-900 text-white rounded-lg text-sm hover:bg-slate-800">
+                        Buscar
+                    </button>
+                </div>
+            
+                <div class="flex gap-2">
+                    <select
+                        class="rounded-lg border border-slate-200 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-slate-400"
+                    >
+                        <option value="">Plataforma</option>
+                        <option value="pc">PC</option>
+                        <option value="ps5">PlayStation</option>
+                        <option value="xbox">Xbox</option>
+                        <option value="switch">Nintendo Switch</option>
+                    </select>
+                    
+                    <select
+                        class="rounded-lg border border-slate-200 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-slate-400"
+                    >
+                        <option value="">Ordenar por</option>
+                        <option value="rating">Mejor valorados</option>
+                        <option value="recent">Más recientes</option>
+                        <option value="name">Nombre</option>
+                    </select>
+                </div>
+            </section>
+            
+            <!-- GRID DE VIDEOJUEGOS -->
+            <section>
+                <h2 
+                    class="text-lg font-semibold mb-4 text-slate-800">
+                    Videojuegos destacados
+                </h2>
+                
+                <!--Etiqueta para cargar video juegos -->
+                <p 
+                    id = "estado-carga" class="text-sm text-slate-500 mb-3 hidden"> 
+                    Cargando video juegos...
+                </p>
+
+                <!--Etiqueta para errores de carga de video juegos -->
+                <p
+                    id = "estado-error" class="text-sm text-red-500 mb-3 hidden"> 
+                    Error al cargar los video juegos. Inténtalo de nuevo más tarde...
+                </p>
+                
+                <div 
+                    id="grid-videojuegos"
+                    class="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+                >
+                    
+                </div>
+            </section>
+        </main>
+        <script src="./script.js"></script>
+    </body>
+</html>
+
+
+
+ 
