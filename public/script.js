@@ -14,6 +14,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let dragOffsetX = 0;
     let dragOffsetY = 0;
     let tiendasFiltradas = {}; // Almacenar las tiendas disponibles
+    let juegosCacheOriginal = []; // Guardar todos los juegos sin filtrar
 
     // Datos de videojuegos de ejemplo si falla la carga desde la API
     const videoJuegosLocales = [
@@ -81,26 +82,90 @@ document.addEventListener("DOMContentLoaded", () => {
 
     }
 
-    async function cargarVideojuegosInicial() { //Async significa que la función maneja operaciones asíncronas y puede usar await
+    // Función para hacer peticiones con reintentos en caso de 429
+    async function fetchConRetry(url, maxRetries = 3) {
+        for (let i = 0; i < maxRetries; i++) {
+            try {
+                const resp = await fetch(url);
+                
+                if (resp.status === 429) {
+                    // Exponential backoff: 1s, 2s, 4s
+                    const delay = 1000 * Math.pow(2, i);
+                    console.warn(`⚠️ Rate limit (429) alcanzado. Esperando ${delay}ms...`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    continue;
+                }
+                
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                return await resp.json();
+            } catch (e) {
+                if (i === maxRetries - 1) throw e;
+                console.warn(`Reintentando... (intento ${i + 1}/${maxRetries})`);
+            }
+        }
+    }
+
+    // Función para cargar desde localStorage o desde API si está expirado
+    async function cargarVideojuegosConCache() {
+        const cacheKey = 'quantum_games_cache';
+        const cacheTime = 3600000; // 1 hora en milisegundos
+        const cached = localStorage.getItem(cacheKey);
+        
+        if (cached) {
+            try {
+                const { datos, timestamp } = JSON.parse(cached);
+                if (Date.now() - timestamp < cacheTime) {
+                    console.log("✅ Usando datos del cache (1 hora)");
+                    window._juegosCache = datos;
+                    juegosCacheOriginal = datos; // Guardar el cache original
+                    renderizarVideojuegos(datos);
+                    return datos;
+                }
+            } catch (e) {
+                console.warn("Error al leer cache:", e);
+            }
+        }
+        
+        // Si no hay cache válido, cargar desde API
+        return await cargarVideojuegosDesdeAPI();
+    }
+
+    // Función para cargar desde la API con estrategia de lotes
+    async function cargarVideojuegosDesdeAPI() {
         try{
             estadoCarga.classList.remove('hidden'); // Mostrar indicador de carga
             
-            // Array de tiendas activas a las que haremos peticiones
             const tiendas = [1, 2, 3, 7, 11, 13, 15, 21, 23, 25, 27, 28, 29, 30, 34, 35];
             let todosLosJuegos = [];
             
-            // Hacer peticiones a múltiples tiendas
-            for (const storeID of tiendas) {
+            const BATCH_SIZE = 3; // Procesar 3 tiendas a la vez
+            const DELAY_BETWEEN_BATCHES = 1000; // 1 segundo entre lotes
+            
+            // Procesar tiendas en lotes
+            for (let i = 0; i < tiendas.length; i += BATCH_SIZE) {
+                const batch = tiendas.slice(i, i + BATCH_SIZE);
+                console.log(`📦 Cargando lote ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(tiendas.length / BATCH_SIZE)}`);
+                
                 try {
-                    const url = `https://www.cheapshark.com/api/1.0/deals?storeID=${storeID}&pageSize=20`;
-                    const resp = await fetch(url);
-                    const datos = await resp.json();
+                    const promesas = batch.map(storeID => 
+                        fetchConRetry(`https://www.cheapshark.com/api/1.0/deals?storeID=${storeID}&pageSize=20`)
+                            .catch(err => {
+                                console.warn(`❌ Error tienda ${storeID}:`, err);
+                                return [];
+                            })
+                    );
                     
-                    // Agregar los juegos de esta tienda
-                    todosLosJuegos = [...todosLosJuegos, ...datos];
+                    const resultados = await Promise.all(promesas);
+                    resultados.forEach(datos => {
+                        todosLosJuegos = [...todosLosJuegos, ...datos];
+                    });
+                    
+                    // Esperar entre lotes (excepto después del último)
+                    if (i + BATCH_SIZE < tiendas.length) {
+                        await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_BATCHES));
+                    }
                 } catch (e) {
-                    console.warn(`Error al cargar tienda ${storeID}:`, e);
-                    // Continuar con la siguiente tienda si una falla
+                    console.warn(`❌ Error en lote ${Math.floor(i / BATCH_SIZE) + 1}:`, e);
                 }
             }
             
@@ -115,15 +180,33 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             }
 
-            window._juegosCache = juegosUnicos; // cache para reutilizar los datos sin hacer múltiples peticiones
-            
-            renderizarVideojuegos(juegosUnicos); // Llamamos a la función para renderizar los videojuegos con los datos obtenidos
-            estadoCarga.classList.add('hidden'); // Ocultar indicador de carga
-        } catch (e) {
-            console.error("Error al cargar los videojuegos desde la API:", e);
+            // Guardar en cache
+            try {
+                localStorage.setItem(cacheKey, JSON.stringify({
+                    datos: juegosUnicos,
+                    timestamp: Date.now()
+                }));
+                console.log("💾 Datos guardados en cache local");
+            } catch (e) {
+                console.warn("Advertencia: No se pudo guardar en localStorage:", e);
+            }
+
+            window._juegosCache = juegosUnicos;
+            juegosCacheOriginal = juegosUnicos; // Guardar el cache original sin modificar
+            renderizarVideojuegos(juegosUnicos);
             estadoCarga.classList.add('hidden');
-            renderizarVideojuegos(videoJuegosLocales); // Si hay un error, renderizamos los videojuegos locales de ejemplo
+            
+            return juegosUnicos;
+        } catch (e) {
+            console.error("❌ Error al cargar los videojuegos desde la API:", e);
+            estadoCarga.classList.add('hidden');
+            renderizarVideojuegos(videoJuegosLocales);
+            return videoJuegosLocales;
         }
+    }
+
+    async function cargarVideojuegosInicial() { //Async significa que la función maneja operaciones asíncronas y puede usar await
+        await cargarVideojuegosConCache();
     }
 
     // Función para cargar las tiendas
@@ -219,11 +302,10 @@ document.addEventListener("DOMContentLoaded", () => {
         estadoCarga.classList.remove("hidden");
         estadoError.classList.add("hidden");
 
-        // Realizar búsqueda en la API
+        // Realizar búsqueda en la API con reintentos
         try {
             const url = `https://www.cheapshark.com/api/1.0/games?title=${encodeURIComponent(texto)}&limit=20`;
-            const resp = await fetch(url);
-            const datos = await resp.json();
+            const datos = await fetchConRetry(url, 3);
 
             if (datos.length === 0) {
                 estadoCarga.classList.add("hidden");
@@ -237,20 +319,21 @@ document.addEventListener("DOMContentLoaded", () => {
             const resultados = datos.map((juego) => ({
                 title: juego.external,
                 thumb: juego.thumb,
-                normalPrice: juego.cheapest, // CheapShark devuelve "cheapest"
-                salePrice: juego.cheapest,   // No hay oferta aquí
+                normalPrice: juego.cheapest,
+                salePrice: juego.cheapest,
                 savings: null,
-                gameID: juego.gameID,   // Agregado para consistencia
+                gameID: juego.gameID,
             }));
             
-            window._juegosCache = resultados; // Actualizar cache
+            window._juegosCache = resultados; // Actualizar cache de búsqueda (pero no el original)
             const criterioOrden = selectOrdenar.value;
             const resultadosOrdenados = ordenarVideojuegos(resultados, criterioOrden);
             renderizarVideojuegos(resultadosOrdenados);
-        } catch (e) {
-            console.error("Error al buscar videojuegos:", e);
             estadoCarga.classList.add("hidden");
-            estadoError.textContent = "Error al buscar videojuegos.";
+        } catch (e) {
+            console.error("❌ Error al buscar videojuegos:", e);
+            estadoCarga.classList.add("hidden");
+            estadoError.textContent = "Error al buscar videojuegos. Intenta de nuevo más tarde.";
             estadoError.classList.remove("hidden");
         }
     }
@@ -423,8 +506,15 @@ document.addEventListener("DOMContentLoaded", () => {
     document.querySelector("#input-busqueda")
             .addEventListener("input", (e) => {
                 if (e.target.value.trim() === "") {
-                    // Si está vacío, mostramos los juegos iniciales
-                    renderizarVideojuegos(window._juegosCache);
+                    // Si está vacío, mostramos los juegos del cache original
+                    if (juegosCacheOriginal.length > 0) {
+                        const storeID = selectTienda.value;
+                        let juegosFiltrados = filtrarPorTienda(juegosCacheOriginal, storeID);
+                        const criterioOrden = selectOrdenar.value;
+                        const juegosOrdenados = ordenarVideojuegos(juegosFiltrados, criterioOrden);
+                        window._juegosCache = juegosCacheOriginal;
+                        renderizarVideojuegos(juegosOrdenados);
+                    }
                 }
             });
 });
