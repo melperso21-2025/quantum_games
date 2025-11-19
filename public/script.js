@@ -188,6 +188,7 @@ document.addEventListener("DOMContentLoaded", () => {
     async function cargarVideojuegosDesdeAPI() {
         try{
             estadoCarga.classList.remove('hidden'); // Mostrar indicador de carga
+            estadoError.classList.add('hidden'); // Ocultar errores previos
             
             const tiendas = [1, 2, 3, 7, 11, 13, 15, 21, 23, 25, 27, 28, 29, 30, 34, 35];
             let todosLosJuegos = [];
@@ -211,7 +212,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     
                     const resultados = await Promise.all(promesas);
                     resultados.forEach(datos => {
-                        todosLosJuegos = [...todosLosJuegos, ...datos];
+                        if (Array.isArray(datos)) {
+                            todosLosJuegos = [...todosLosJuegos, ...datos];
+                        }
                     });
                     
                     // Esperar entre lotes (excepto después del último)
@@ -221,6 +224,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 } catch (e) {
                     console.warn(`❌ Error en lote ${Math.floor(i / BATCH_SIZE) + 1}:`, e);
                 }
+            }
+            
+            // Verificar si se obtuvieron datos
+            if (todosLosJuegos.length === 0) {
+                throw new Error("No se obtuvieron datos de la API");
             }
             
             // Remover duplicados por gameID (mantener el primero encontrado)
@@ -254,8 +262,10 @@ document.addEventListener("DOMContentLoaded", () => {
         } catch (e) {
             console.error("❌ Error al cargar los videojuegos desde la API:", e);
             estadoCarga.classList.add('hidden');
-            renderizarVideojuegos(videoJuegosLocales);
-            return videoJuegosLocales;
+            estadoError.classList.remove('hidden');
+            estadoError.textContent = "⚠️ La API no responde. Intenta de nuevo más tarde.";
+            grid.innerHTML = "";
+            return [];
         }
     }
 
@@ -267,6 +277,11 @@ document.addEventListener("DOMContentLoaded", () => {
     async function cargarTiendas() {
         try {
             const resp = await fetch("https://www.cheapshark.com/api/1.0/stores");
+            
+            if (!resp.ok) {
+                throw new Error(`HTTP Error: ${resp.status}`);
+            }
+            
             const tiendas = await resp.json();
             
             // Filtrar solo tiendas activas y crear objeto para rápido acceso
@@ -289,7 +304,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
             return tiendas;
         } catch (e) {
-            console.error("Error al cargar las tiendas:", e);
+            console.error("❌ Error al cargar las tiendas:", e);
+            console.warn("Continuando sin datos de tiendas...");
+            return [];
         }
     }
 
@@ -361,9 +378,9 @@ document.addEventListener("DOMContentLoaded", () => {
             const url = `https://www.cheapshark.com/api/1.0/games?title=${encodeURIComponent(texto)}&limit=20`;
             const datos = await fetchConRetry(url, 3);
 
-            if (datos.length === 0) {
+            if (!datos || datos.length === 0) {
                 estadoCarga.classList.add("hidden");
-                estadoError.textContent = "No se encontraron videojuegos.";
+                estadoError.textContent = "No se encontraron videojuegos para ese término.";
                 estadoError.classList.remove("hidden");
                 grid.innerHTML = "";
                 return;
@@ -387,8 +404,9 @@ document.addEventListener("DOMContentLoaded", () => {
         } catch (e) {
             console.error("❌ Error al buscar videojuegos:", e);
             estadoCarga.classList.add("hidden");
-            estadoError.textContent = "Error al buscar videojuegos. Intenta de nuevo más tarde.";
+            estadoError.textContent = "⚠️ La API no responde. Intenta de nuevo más tarde.";
             estadoError.classList.remove("hidden");
+            grid.innerHTML = "";
         }
     }
 
@@ -464,7 +482,16 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
             const url = `https://www.cheapshark.com/api/1.0/games?id=${gameID}`;
             const resp = await fetch(url);
+            
+            if (!resp.ok) {
+                throw new Error(`HTTP Error: ${resp.status}`);
+            }
+            
             const data = await resp.json();
+
+            if (!data.info) {
+                throw new Error("Datos incompletos del API");
+            }
 
             const info = data.info;
             const deals = data.deals || [];
@@ -516,9 +543,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 </div>
             `;
         } catch (err) {
-            console.error(err);
+            console.error("❌ Error al cargar detalles del juego:", err);
             modalContent.innerHTML = `
-                <p class="text-center text-red-600">Error al cargar los detalles.</p>
+                <div class="text-center">
+                    <p class="text-red-600 font-semibold mb-2">⚠️ La API no responde</p>
+                    <p class="text-slate-600 text-sm">No se pudieron cargar los detalles del juego.</p>
+                    <p class="text-slate-500 text-xs mt-2">Intenta de nuevo más tarde.</p>
+                </div>
             `;
         }
     }
