@@ -15,6 +15,11 @@ document.addEventListener("DOMContentLoaded", () => {
     let dragOffsetY = 0;
     let tiendasFiltradas = {}; // Almacenar las tiendas disponibles
     let juegosCacheOriginal = []; // Guardar todos los juegos sin filtrar
+    
+    // Variables para paginación
+    let paginaActual = 1;
+    const JUEGOS_POR_PAGINA = 20;
+    let juegosPaginadosActuales = []; // Guarda los juegos actuales a paginar
 
     // Datos de videojuegos de ejemplo si falla la carga desde la API
     const videoJuegosLocales = [
@@ -40,16 +45,34 @@ document.addEventListener("DOMContentLoaded", () => {
         estadoCarga.classList.add('hidden'); // Ocultamos el estado de carga
         estadoError.classList.add('hidden'); // Ocultamos el estado de error
 
-        lista.forEach((juego) => { // Iteramos sobre cada videojuego
+        // Guardar lista para paginación
+        juegosPaginadosActuales = lista;
+        paginaActual = 1;
+        
+        // Mostrar página 1
+        mostrarPaginaActual();
+        actualizarBotonesPaginacion();
+    }
 
-            const titulo = juego.title || juego.external || "Título Desconocido"; // creamos la variable titulo
+    function mostrarPaginaActual() {
+        grid.innerHTML = ""; // Limpiar grid
+        
+        const inicio = (paginaActual - 1) * JUEGOS_POR_PAGINA;
+        const fin = inicio + JUEGOS_POR_PAGINA;
+        const juegosPagina = juegosPaginadosActuales.slice(inicio, fin);
+
+        if (juegosPagina.length === 0) {
+            grid.innerHTML = '<p class="text-center text-slate-500 col-span-full py-8">No hay videojuegos para mostrar.</p>';
+            return;
+        }
+
+        juegosPagina.forEach((juego) => {
+            const titulo = juego.title || juego.external || "Título Desconocido";
             const imagen = juego.thumb || juego.imagen || "";
-            const normal = juego.normalPrice ?? "--"; // El operador nullish lo que hace es verificar si es nulo o indefinido y en ese caso asigna "--"
-            const oferta = juego.salePrice ?? "--"; // El operador nullish lo que hace es verificar si es nulo o indefinido y en ese caso asigna "--"
-            const ahorro = juego.savings ? Math.round(Number(juego.savings)) : null; // Primero convierte el valor a número, Si hay ahorro, lo redondeamos, si no, es null
+            const normal = juego.normalPrice ?? "--";
+            const oferta = juego.salePrice ?? "--";
+            const ahorro = juego.savings ? Math.round(Number(juego.savings)) : null;
 
-
-            //Creamos el html de cada card
             const card = document.createElement("article");
             card.className = 
                 "bg-white rounded-xl shadow-sm overflow-hidden border border-slate-100 flex flex-col hover:shadow-md transition-shadow";
@@ -75,11 +98,42 @@ document.addEventListener("DOMContentLoaded", () => {
                 </div>
             `;
 
-            // Agregamos la card al grid
             grid.appendChild(card);
-            
         });
+    }
 
+    function actualizarBotonesPaginacion() {
+        const btnPrev = document.querySelector("#btn-prev");
+        const btnNext = document.querySelector("#btn-next");
+        const infoPaginacion = document.querySelector("#info-paginacion");
+        
+        const totalPaginas = Math.ceil(juegosPaginadosActuales.length / JUEGOS_POR_PAGINA);
+        
+        // Actualizar texto de información
+        infoPaginacion.textContent = `Página ${paginaActual} de ${totalPaginas} (${juegosPaginadosActuales.length} juegos)`;
+        
+        // Deshabilitar/habilitar botones
+        btnPrev.disabled = paginaActual === 1;
+        btnNext.disabled = paginaActual === totalPaginas || totalPaginas === 0;
+    }
+
+    function irAPaginaAnterior() {
+        if (paginaActual > 1) {
+            paginaActual--;
+            mostrarPaginaActual();
+            actualizarBotonesPaginacion();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }
+
+    function irAPaginaSiguiente() {
+        const totalPaginas = Math.ceil(juegosPaginadosActuales.length / JUEGOS_POR_PAGINA);
+        if (paginaActual < totalPaginas) {
+            paginaActual++;
+            mostrarPaginaActual();
+            actualizarBotonesPaginacion();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
     }
 
     // Función para hacer peticiones con reintentos en caso de 429
@@ -517,4 +571,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     }
                 }
             });
+
+    // Eventos para paginación
+    document.querySelector("#btn-prev").addEventListener("click", irAPaginaAnterior);
+    document.querySelector("#btn-next").addEventListener("click", irAPaginaSiguiente);
 });
